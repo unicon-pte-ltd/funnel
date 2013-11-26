@@ -97,10 +97,8 @@ class Manager(object):
         if ioloop is None:
             ioloop = IOLoop.instance()
 
-        if not queue:
-            self._dynamic_queue = True
-
         self._ioloop               = ioloop
+        self._dynamic_queue        = False if queue else True
         self._stop_ioloop_on_close = stop_ioloop_on_close
         self._connection           = None
         self._channel              = None
@@ -129,8 +127,13 @@ class Manager(object):
                 self.reconnect(async, **kwargs)
         return callback
 
+    def _stack_context_handle_exception(self, type, value, traceback):
+        logging.error("Uncaught exception", exc_info=(type, value, traceback))
+        return True
+
     def connect(self, **kwargs):
-        self._connect(async=False)()
+        with ExceptionStackContext(self._stack_context_handle_exception):
+            self._connect(async=False)()
         self._ioloop.start()
 
     def reconnect(self, async=True, **kwargs):

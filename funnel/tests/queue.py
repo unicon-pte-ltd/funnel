@@ -45,3 +45,10 @@ class TestManager(AsyncTestCase):
         self.wait()
 
         self.assertEqual(counter["n"], 1)
+
+    def test_handling_static_queue_name(self):
+        queue = Manager(queue="dummy")
+        self.addCleanup(queue.close_connection)
+        queue.connect()
+
+        self.assertEqual(queue.name, "dummy")
