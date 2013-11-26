@@ -20,7 +20,7 @@ from funnel.queue import Manager
 from funnel.testing import AsyncWorkerTestCase
 from funnel.worker import Worker
 
-class FelloWorkerTestCase(AsyncWorkerTestCase):
+class WorkerTestCase(AsyncWorkerTestCase):
     def get_publisher(self):
         return Manager()
 
