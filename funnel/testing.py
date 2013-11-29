@@ -70,7 +70,7 @@ def _do_discovery(argv, verbosity, Loader):
     parser.add_option('-v', '--verbose', dest='verbose', default=False,
                       help='Verbose output', action='store_true')
     parser.add_option('-s', '--start-directory', dest='start', default='funnel.tests',
-                      help="Directory to start discovery ('fello.tests' default)")
+                      help="Directory to start discovery ('funnel.tests' default)")
     parser.add_option('-p', '--pattern', dest='pattern', default='*.py',
                       help="Pattern to match tests ('*.py' default)")
     parser.add_option('-t', '--top-level-directory', dest='top', default=None,
