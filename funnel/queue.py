@@ -132,8 +132,9 @@ class Manager(object):
         return True
 
     def connect(self, **kwargs):
+        kwargs.update({'async': False})
         with ExceptionStackContext(self._stack_context_handle_exception):
-            self._connect(async=False)()
+            self._connect(**kwargs)()
         self._ioloop.start()
 
     def reconnect(self, async=True, **kwargs):
