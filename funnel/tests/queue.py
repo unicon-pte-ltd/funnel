@@ -52,3 +52,13 @@ class TestManager(AsyncTestCase):
         queue.connect()
 
         self.assertEqual(queue.name, "dummy")
+
+    def test_publish_with_not_ready(self):
+        queue = Manager(queue="dummy")
+        self.addCleanup(queue.close_connection)
+        queue.connect()
+        queue._ready = False
+        try:
+            queue.publish(None,None)
+        except Exception as e:
+            self.fail("This exception is raised: {}".format(e))

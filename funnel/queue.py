@@ -177,7 +177,7 @@ class Manager(object):
             message.process(*args, **kwargs)
         return wrapper
 
-    def _on_queue_not_ready(self, message, routing_key):
+    def _on_queue_not_ready(self, message, routing):
         logging.error("Failer to publish to %s: %r", routing, message)
 
     def publish(self, message, correlation_id=None, reply_to=None, routing_key=None):
