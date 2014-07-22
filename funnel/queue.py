@@ -180,7 +180,7 @@ class Manager(object):
     def _on_queue_not_ready(self, message, routing):
         logging.error("Failer to publish to %s: %r", routing, message)
 
-    def publish(self, message, correlation_id=None, reply_to=None, routing_key=None):
+    def publish(self, message, correlation_id=None, reply_to=None, routing_key=None, serializer=None):
         if routing_key is None:
             routing_key = self._routing_key
 
@@ -190,7 +190,7 @@ class Manager(object):
         self._channel.basic_publish(
             exchange    = self._exchange,
             routing_key = routing_key,
-            body        = json.dumps(message),
+            body        = json.dumps(message, default=serializer),
             properties  = BasicProperties(
                 content_type   = "application/json",
                 correlation_id = correlation_id,

@@ -62,3 +62,37 @@ class TestManager(AsyncTestCase):
             queue.publish(None,None)
         except Exception as e:
             self.fail("This exception is raised: {}".format(e))
+
+    def test_serializer(self):
+        class SomeObject(object):
+            def __init__(self, entity):
+                self.entity = entity
+
+            def __repr__(self):
+                return self.entity
+
+        queue = Manager()
+        self.addCleanup(queue.close_connection)
+        queue.connect()
+
+        counter = {"n": 0}
+        def on_message(body):
+            self.assertEqual(body, {"message": "Hello, world!"})
+            counter["n"] += 1
+
+        queue.start_consuming(
+            on_message,
+        )
+
+        self.assertRaises(TypeError, lambda: queue.publish({"message": SomeObject("Hello, world!")}, routing_key=queue.name))
+
+        def serializer(o):
+            if isinstance(o, SomeObject):
+                return repr(o)
+            raise TypeError(repr(o) + " is not JSON serializable")
+
+        queue.publish({"message": SomeObject("Hello, world!")}, routing_key=queue.name, serializer=serializer)
+        IOLoop.instance().add_timeout(time() + 0.2, self.stop)
+        self.wait()
+
+        self.assertEqual(counter["n"], 1)
