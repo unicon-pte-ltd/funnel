@@ -45,7 +45,7 @@ class AsyncWorkerTestCase(AsyncTestCase):
         raise NotImplementedError()
 
     def get_new_ioloop(self):
-        return IOLoop.instance()
+        return IOLoop.current()
 
     def publish(self, message, **kwargs):
         if "routing_key" not in kwargs:

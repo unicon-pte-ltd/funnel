@@ -95,7 +95,7 @@ class Message(object):
 class Manager(object):
     def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False):
         if ioloop is None:
-            ioloop = IOLoop.instance()
+            ioloop = IOLoop.current()
 
         self._ioloop               = ioloop
         self._dynamic_queue        = False if queue else True
