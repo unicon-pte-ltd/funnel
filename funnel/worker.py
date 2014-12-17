@@ -32,8 +32,8 @@ class Worker(object):
             pass # TODO error handling
 
     def start(self, **kwargs):
-        self._queue.connect()
-        self._queue.start_consuming(self._on_message, **kwargs)
+        self._queue.connect(**kwargs)
+        self._queue.start_consuming(self._on_message, no_ack=kwargs.get('no_ack'), rpc=kwargs.get('rpc'))
 
     def get_queue_name(self):
         return self._queue.name
