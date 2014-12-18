@@ -16,18 +16,18 @@
 
 from __future__ import absolute_import, division, print_function, with_statement
 
-from funnel.queue import Manager
+from funnel.queue import AsyncManager, SyncManager
 from time import time
 from tornado.testing import AsyncTestCase
 from tornado.ioloop import IOLoop
 from funnel.testing import HOST
 
-class TestManager(AsyncTestCase):
+class TestAsyncManager(AsyncTestCase):
     def get_new_ioloop(self):
         return IOLoop.current()
 
     def test_basis(self):
-        queue = Manager()
+        queue = AsyncManager()
         self.addCleanup(queue.close_connection)
         queue.connect(host=HOST)
 
@@ -48,14 +48,14 @@ class TestManager(AsyncTestCase):
         self.assertEqual(counter["n"], 1)
 
     def test_handling_static_queue_name(self):
-        queue = Manager(queue="dummy")
+        queue = AsyncManager(queue="dummy")
         self.addCleanup(queue.close_connection)
         queue.connect(host=HOST)
 
         self.assertEqual(queue.name, "dummy")
 
     def test_publish_with_not_ready(self):
-        queue = Manager(queue="dummy")
+        queue = AsyncManager(queue="dummy")
         self.addCleanup(queue.close_connection)
         queue.connect(host=HOST)
         queue._ready = False
@@ -72,7 +72,7 @@ class TestManager(AsyncTestCase):
             def __repr__(self):
                 return self.entity
 
-        queue = Manager()
+        queue = AsyncManager()
         self.addCleanup(queue.close_connection)
         queue.connect(host=HOST)
 
@@ -97,3 +97,42 @@ class TestManager(AsyncTestCase):
         self.wait()
 
         self.assertEqual(counter["n"], 1)
+
+
+class TestSyncManager(AsyncTestCase):
+    def test_basis(self):
+        # manager二つ使っているのでqueue nameは固定にしないと動かない
+        queue = SyncManager(queue="dummy")
+        worker_queue = AsyncManager(queue="dummy")
+        self.addCleanup(queue.close_connection)
+        # XXX こちらをcloseするとtesting のAsyncWorkerTestCase.doCleanupと競合しているのかエラーになるのでコメントアウト
+#         self.addCleanup(worker_queue.close_connection)
+        queue.connect(host=HOST)
+        worker_queue.connect(host=HOST)
+
+        counter = {"n": 0}
+        def on_message(body):
+            self.assertEqual(body, {"message": "Hello, world!"})
+            counter["n"] += 1
+
+        worker_queue.start_consuming(
+            on_message,
+        )
+
+        queue.publish({"message": "Hello, world!"}, routing_key=queue.name)
+
+        IOLoop.current().add_timeout(time() + 0.2, self.stop)
+        self.wait()
+
+        self.assertEqual(counter["n"], 1)
+
+    def test_publish_with_not_ready(self):
+        queue = SyncManager(queue="dummy")
+        self.addCleanup(queue.close_connection)
+        queue.connect(host=HOST)
+        queue._ready = False
+        try:
+            queue.publish(None,None)
+        except Exception as e:
+            self.fail("This exception is raised: {}".format(e))
+
