@@ -143,6 +143,11 @@ class SyncManager(BaseManager):
                 ConnectionParameters(**kwargs),
             )
             self._channel = self._connection.channel()
+            self._channel.queue_declare(
+                queue     = "" if self._dynamic_queue else self._queue,
+                exclusive = self._exclusive,
+                durable = self._persistent
+            )
         except AMQPConnectionError as e:
             logging.exception(e)
             self.reconnect(**kwargs)
@@ -212,6 +217,7 @@ class AsyncManager(BaseManager):
                 callback  = self._on_queue_declareok(async),
                 queue     = "" if self._dynamic_queue else self._queue,
                 exclusive = self._exclusive,
+                durable = self._persistent,
             )
         return callback
 
