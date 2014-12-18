@@ -20,6 +20,7 @@ from funnel.queue import Manager
 from time import time
 from tornado.testing import AsyncTestCase
 from tornado.ioloop import IOLoop
+from funnel.testing import HOST
 
 class TestManager(AsyncTestCase):
     def get_new_ioloop(self):
@@ -28,7 +29,7 @@ class TestManager(AsyncTestCase):
     def test_basis(self):
         queue = Manager()
         self.addCleanup(queue.close_connection)
-        queue.connect()
+        queue.connect(host=HOST)
 
         counter = {"n": 0}
         def on_message(body):
@@ -49,14 +50,14 @@ class TestManager(AsyncTestCase):
     def test_handling_static_queue_name(self):
         queue = Manager(queue="dummy")
         self.addCleanup(queue.close_connection)
-        queue.connect()
+        queue.connect(host=HOST)
 
         self.assertEqual(queue.name, "dummy")
 
     def test_publish_with_not_ready(self):
         queue = Manager(queue="dummy")
         self.addCleanup(queue.close_connection)
-        queue.connect()
+        queue.connect(host=HOST)
         queue._ready = False
         try:
             queue.publish(None,None)
@@ -73,7 +74,7 @@ class TestManager(AsyncTestCase):
 
         queue = Manager()
         self.addCleanup(queue.close_connection)
-        queue.connect()
+        queue.connect(host=HOST)
 
         counter = {"n": 0}
         def on_message(body):

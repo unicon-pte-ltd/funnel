@@ -28,15 +28,16 @@ except ImportError:
     from unittest import TextTestRunner
 import types
 
+HOST = '127.0.0.1'
 class AsyncWorkerTestCase(AsyncTestCase):
     def setUp(self):
         super(AsyncWorkerTestCase, self).setUp()
 
         self.publisher = self.get_publisher()
-        self.publisher.connect()
+        self.publisher.connect(host=HOST)
         self.publisher.start_consuming(self.stop, no_ack=True)
         self._worker = self.get_worker()
-        self._worker.start(rpc=True)
+        self._worker.start(rpc=True, host=HOST)
 
     def get_publisher(self):
         return Manager()
