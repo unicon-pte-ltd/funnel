@@ -93,7 +93,7 @@ class Message(object):
         self._log()
 
 class BaseManager(object):
-    def __init__(self, queue="", exchange="", routing_key="", exclusive=False):
+    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, persistent=False):
         self._dynamic_queue        = False if queue else True
         self._connection           = None
         self._channel              = None
@@ -102,6 +102,7 @@ class BaseManager(object):
         self._routing_key          = routing_key
         self._exclusive            = exclusive
         self._ready                = False
+        self._persistent          = persistent
 
     def get_name(self):
         return self._queue
@@ -115,15 +116,20 @@ class BaseManager(object):
         if not self._ready: # TODO Flushing stacked messages
             self._on_queue_not_ready(message, routing_key)
 
+        properties = {
+            "content_type"   : "application/json",
+            "correlation_id" : correlation_id,
+            "reply_to"       : reply_to,
+        }
+
+        if self._persistent:
+            properties['delivery_mode'] = 2
+
         self._channel.basic_publish(
             exchange    = self._exchange,
             routing_key = routing_key,
             body        = json.dumps(message, default=serializer),
-            properties  = BasicProperties(
-                content_type   = "application/json",
-                correlation_id = correlation_id,
-                reply_to       = reply_to,
-            ),
+            properties  = BasicProperties(**properties),
         )
 
     def _on_queue_not_ready(self, message, routing):
@@ -137,6 +143,11 @@ class SyncManager(BaseManager):
                 ConnectionParameters(**kwargs),
             )
             self._channel = self._connection.channel()
+            self._channel.queue_declare(
+                queue     = "" if self._dynamic_queue else self._queue,
+                exclusive = self._exclusive,
+                durable = self._persistent
+            )
         except AMQPConnectionError as e:
             logging.exception(e)
             self.reconnect(**kwargs)
@@ -206,6 +217,7 @@ class AsyncManager(BaseManager):
                 callback  = self._on_queue_declareok(async),
                 queue     = "" if self._dynamic_queue else self._queue,
                 exclusive = self._exclusive,
+                durable = self._persistent,
             )
         return callback
 
