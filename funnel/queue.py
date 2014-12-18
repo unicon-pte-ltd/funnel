@@ -18,10 +18,10 @@ from __future__ import absolute_import, division, print_function, with_statement
 
 import json
 import logging
-from pika import BasicProperties, ConnectionParameters
+from pika import BasicProperties, ConnectionParameters, BlockingConnection
 from pika.adapters.tornado_connection import TornadoConnection
 from pika.exceptions import AMQPConnectionError
-from time import time
+from time import time, sleep
 from tornado.concurrent import Future
 from tornado.ioloop import IOLoop
 from tornado.stack_context import ExceptionStackContext
@@ -92,14 +92,9 @@ class Message(object):
 
         self._log()
 
-class Manager(object):
-    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False):
-        if ioloop is None:
-            ioloop = IOLoop.current()
-
-        self._ioloop               = ioloop
+class BaseManager(object):
+    def __init__(self, queue="", exchange="", routing_key="", exclusive=False):
         self._dynamic_queue        = False if queue else True
-        self._stop_ioloop_on_close = stop_ioloop_on_close
         self._connection           = None
         self._channel              = None
         self._exchange             = exchange
@@ -112,6 +107,57 @@ class Manager(object):
         return self._queue
 
     name = property(get_name)
+
+    def publish(self, message, correlation_id=None, reply_to=None, routing_key=None, serializer=None):
+        if routing_key is None:
+            routing_key = self._routing_key
+
+        if not self._ready: # TODO Flushing stacked messages
+            self._on_queue_not_ready(message, routing_key)
+
+        self._channel.basic_publish(
+            exchange    = self._exchange,
+            routing_key = routing_key,
+            body        = json.dumps(message, default=serializer),
+            properties  = BasicProperties(
+                content_type   = "application/json",
+                correlation_id = correlation_id,
+                reply_to       = reply_to,
+            ),
+        )
+
+    def _on_queue_not_ready(self, message, routing):
+        logging.error("Failer to publish to %s: %r", routing, message)
+
+
+class SyncManager(BaseManager):
+    def connect(self, **kwargs):
+        try:
+            self._connection = BlockingConnection(
+                ConnectionParameters(**kwargs),
+            )
+            self._channel = self._connection.channel()
+        except AMQPConnectionError as e:
+            logging.exception(e)
+            self.reconnect(**kwargs)
+
+    def reconnect(self, **kwargs):
+        sleep(CONNECTION_RETRY_INTERVAL)
+        self.connect(**kwargs)
+
+    def close_connection(self):
+        self._connection.close()
+
+
+class AsyncManager(BaseManager):
+    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False):
+        if ioloop is None:
+            ioloop = IOLoop.current()
+
+        self._ioloop               = ioloop
+        self._stop_ioloop_on_close = stop_ioloop_on_close
+
+        super(Manager, self).__init__(queue, exchange, routing_key, exclusive=False)
 
     def _connect(self, async=True, **kwargs):
         def callback():
@@ -177,27 +223,6 @@ class Manager(object):
             message.process(*args, **kwargs)
         return wrapper
 
-    def _on_queue_not_ready(self, message, routing):
-        logging.error("Failer to publish to %s: %r", routing, message)
-
-    def publish(self, message, correlation_id=None, reply_to=None, routing_key=None, serializer=None):
-        if routing_key is None:
-            routing_key = self._routing_key
-
-        if not self._ready: # TODO Flushing stacked messages
-            self._on_queue_not_ready(message, routing_key)
-
-        self._channel.basic_publish(
-            exchange    = self._exchange,
-            routing_key = routing_key,
-            body        = json.dumps(message, default=serializer),
-            properties  = BasicProperties(
-                content_type   = "application/json",
-                correlation_id = correlation_id,
-                reply_to       = reply_to,
-            ),
-        )
-
     def call(self, message, **kwargs):
         self.publish(
             message,
@@ -216,3 +241,7 @@ class Manager(object):
     def close_connection(self): # TODO synchronous disconnecting
         self._connection.callbacks.clear()
         self._connection.close()
+
+
+# alias
+Manager = AsyncManager
