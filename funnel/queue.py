@@ -61,11 +61,14 @@ class Message(object):
                 def future_complete(f):
                     if not self._no_ack:
                         self.acknowledge()
+
                     try:
                         self.finish(f.result())
                     except Exception as e:
                         self.finish({"error": True})
                         raise
+
+                    self._queue._decrement_working_count()
                 IOLoop.current().add_future(result, future_complete)
                 return
 
@@ -73,6 +76,7 @@ class Message(object):
                 self.acknowledge()
 
             self.finish(result)
+            self._queue._decrement_working_count()
 
     def process_time(self):
         return time() - self._start_time
@@ -82,7 +86,6 @@ class Message(object):
 
     def acknowledge(self):
         self._queue._channel.basic_ack(self._basic_deliver.delivery_tag)
-        self._queue._decrement_working_count()
 
     def finish(self, result):
         if self._rpc:
