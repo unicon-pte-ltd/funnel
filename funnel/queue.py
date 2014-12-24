@@ -42,6 +42,7 @@ class Message(object):
         return True
 
     def process(self, unused_channel, basic_deliver, properties, body):
+        self._queue._increment_working_count()
         self._unused_channel = unused_channel
         self._basic_deliver  = basic_deliver
         self._properties     = properties
@@ -81,6 +82,7 @@ class Message(object):
 
     def acknowledge(self):
         self._queue._channel.basic_ack(self._basic_deliver.delivery_tag)
+        self._queue._decrement_working_count()
 
     def finish(self, result):
         if self._rpc:
@@ -161,14 +163,29 @@ class SyncManager(BaseManager):
 
 
 class AsyncManager(BaseManager):
-    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False):
+
+    _process_count = 0
+    _working_count = 0
+
+    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False, stop_on_max_processed=False, max_process_count=1):
         if ioloop is None:
             ioloop = IOLoop.current()
 
         self._ioloop               = ioloop
         self._stop_ioloop_on_close = stop_ioloop_on_close
+        self._stop_on_max_processed = stop_on_max_processed
+        self._max_process_count = max_process_count
 
         super(Manager, self).__init__(queue, exchange, routing_key, exclusive=False)
+
+    def _increment_working_count(self):
+        self._process_count += 1
+        self._working_count += 1
+
+    def _decrement_working_count(self):
+        self._working_count -= 1
+        if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0:
+            self._ioloop.stop()
 
     def _connect(self, async=True, **kwargs):
         def callback():
