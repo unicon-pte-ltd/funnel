@@ -42,6 +42,7 @@ class Message(object):
         return True
 
     def process(self, unused_channel, basic_deliver, properties, body):
+        self._queue._increment_working_count()
         self._unused_channel = unused_channel
         self._basic_deliver  = basic_deliver
         self._properties     = properties
@@ -60,11 +61,14 @@ class Message(object):
                 def future_complete(f):
                     if not self._no_ack:
                         self.acknowledge()
+
                     try:
                         self.finish(f.result())
                     except Exception as e:
                         self.finish({"error": True})
                         raise
+
+                    self._queue._decrement_working_count()
                 IOLoop.current().add_future(result, future_complete)
                 return
 
@@ -72,6 +76,7 @@ class Message(object):
                 self.acknowledge()
 
             self.finish(result)
+            self._queue._decrement_working_count()
 
     def process_time(self):
         return time() - self._start_time
@@ -161,14 +166,29 @@ class SyncManager(BaseManager):
 
 
 class AsyncManager(BaseManager):
-    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False):
+
+    _process_count = 0
+    _working_count = 0
+    _last_finish_time = 0
+
+    def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False, stop_on_max_processed=False, max_process_count=1):
         if ioloop is None:
             ioloop = IOLoop.current()
 
         self._ioloop               = ioloop
         self._stop_ioloop_on_close = stop_ioloop_on_close
+        self._stop_on_max_processed = stop_on_max_processed
+        self._max_process_count = max_process_count
 
         super(Manager, self).__init__(queue, exchange, routing_key, exclusive=False)
+
+    def _increment_working_count(self):
+        self._process_count += 1
+        self._working_count += 1
+
+    def _decrement_working_count(self):
+        self._working_count -= 1
+        self._last_finish_time = time()
 
     def _connect(self, async=True, **kwargs):
         def callback():
@@ -188,10 +208,27 @@ class AsyncManager(BaseManager):
         logging.error("Uncaught exception", exc_info=(type, value, traceback))
         return True
 
+    # 1秒はackが到達するであろう時間
+    def _check_max_processed(self):
+        logging.info("check max processed")
+        if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0 and time() - self._last_finish_time > 1:
+            logging.info("end ioloop by max processed")
+            self._ioloop.stop()
+        else:
+            self._ioloop.add_timeout(
+                time() + 10, self._check_max_processed
+            )
+
     def connect(self, **kwargs):
         kwargs.update({'async': False})
         with ExceptionStackContext(self._stack_context_handle_exception):
             self._connect(**kwargs)()
+
+        if self._stop_ioloop_on_close:
+            self._ioloop.add_timeout(
+                time() + 10, self._check_max_processed
+            )
+
         self._ioloop.start()
 
     def reconnect(self, async=True, **kwargs):
