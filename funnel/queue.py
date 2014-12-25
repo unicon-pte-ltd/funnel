@@ -210,11 +210,11 @@ class AsyncManager(BaseManager):
 
     # 1秒はackが到達するであろう時間
     def _check_max_processed(self):
-        if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0 and self._last_finish_time < time() - 1:
+        if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0 and time() - self._last_finish_time > 1:
             self._ioloop.stop()
         else:
             self._ioloop.add_timeout(
-                10, self._check_max_processed
+                time() + 10, self._check_max_processed
             )
 
     def connect(self, **kwargs):
@@ -222,9 +222,11 @@ class AsyncManager(BaseManager):
         with ExceptionStackContext(self._stack_context_handle_exception):
             self._connect(**kwargs)()
 
-        self._ioloop.add_timeout(
-            10, self._check_max_processed
-        )
+        if self._stop_ioloop_on_close:
+            self._ioloop.add_timeout(
+                time() + 10, self._check_max_processed
+            )
+
         self._ioloop.start()
 
     def reconnect(self, async=True, **kwargs):
