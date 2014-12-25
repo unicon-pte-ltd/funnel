@@ -169,6 +169,7 @@ class AsyncManager(BaseManager):
 
     _process_count = 0
     _working_count = 0
+    _last_finish_time = 0
 
     def __init__(self, queue="", exchange="", routing_key="", exclusive=False, ioloop=None, stop_ioloop_on_close=False, stop_on_max_processed=False, max_process_count=1):
         if ioloop is None:
@@ -187,8 +188,7 @@ class AsyncManager(BaseManager):
 
     def _decrement_working_count(self):
         self._working_count -= 1
-        if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0:
-            self._ioloop.stop()
+        self._last_finish_time = time()
 
     def _connect(self, async=True, **kwargs):
         def callback():
@@ -208,10 +208,23 @@ class AsyncManager(BaseManager):
         logging.error("Uncaught exception", exc_info=(type, value, traceback))
         return True
 
+    # 1秒はackが到達するであろう時間
+    def _check_max_processed(self):
+        if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0 and self._last_finish_time < time() - 1:
+            self._ioloop.stop()
+        else:
+            self._ioloop.add_timeout(
+                10, self._check_max_processed
+            )
+
     def connect(self, **kwargs):
         kwargs.update({'async': False})
         with ExceptionStackContext(self._stack_context_handle_exception):
             self._connect(**kwargs)()
+
+        self._ioloop.add_timeout(
+            10, self._check_max_processed
+        )
         self._ioloop.start()
 
     def reconnect(self, async=True, **kwargs):
