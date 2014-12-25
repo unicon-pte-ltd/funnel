@@ -210,7 +210,9 @@ class AsyncManager(BaseManager):
 
     # 1秒はackが到達するであろう時間
     def _check_max_processed(self):
+        logging.info("_check_max_processed")
         if self._stop_on_max_processed and self._process_count >= self._max_process_count and self._working_count == 0 and time() - self._last_finish_time > 1:
+            logging.info("edn ioloop by max_processed")
             self._ioloop.stop()
         else:
             self._ioloop.add_timeout(
