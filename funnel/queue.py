@@ -203,6 +203,8 @@ class AsyncManager(BaseManager):
                 logging.exception(e)
                 if reconnect:
                     self.reconnect(async, **kwargs)
+                else:
+                    self._ioloop.stop()
         return callback
 
     def _stack_context_handle_exception(self, type, value, traceback):
