@@ -190,7 +190,7 @@ class AsyncManager(BaseManager):
         self._working_count -= 1
         self._last_finish_time = time()
 
-    def _connect(self, async=True, **kwargs):
+    def _connect(self, async=True, reconnect=True, **kwargs):
         def callback():
             try:
                 self._connection = TornadoConnection(
@@ -201,7 +201,8 @@ class AsyncManager(BaseManager):
                 )
             except AMQPConnectionError as e:
                 logging.exception(e)
-                self.reconnect(async, **kwargs)
+                if reconnect:
+                    self.reconnect(async, **kwargs)
         return callback
 
     def _stack_context_handle_exception(self, type, value, traceback):
