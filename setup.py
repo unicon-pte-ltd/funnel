@@ -34,7 +34,7 @@ if setuptools is not None:
 
 setup(
     name = "funnel",
-    version = "0.9.0",
+    version = "0.9.1",
     packages = ["funnel"],
     author = "Unicon Pte. Ltd.",
     author_email = "",
