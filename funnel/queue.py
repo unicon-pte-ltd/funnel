@@ -46,6 +46,8 @@ class Message(object):
         self._unused_channel = unused_channel
         self._basic_deliver  = basic_deliver
         self._properties     = properties
+        if str(type(body)) == "<class 'bytes'>":
+            body = body.decode('utf-8')
         self._body           = json.loads(body)
 
         with ExceptionStackContext(self._stack_context_handle_exception):

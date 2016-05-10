@@ -29,7 +29,7 @@ kwargs = {}
 if setuptools is not None:
     kwargs["install_requires"] = [
         "tornado==3.1.1",
-        "pika==0.9.13",
+        "pika==0.10.0",
     ]
 
 setup(

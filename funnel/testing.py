@@ -16,7 +16,11 @@
 
 from __future__ import absolute_import, division, print_function, with_statement
 
-from discover import DiscoveringTestLoader
+try:
+    from discover import DiscoveringTestLoader
+except ImportError:
+    from unittest import TestLoader as DiscoveringTestLoader
+
 from funnel.queue import Manager
 from optparse import OptionParser
 import sys
