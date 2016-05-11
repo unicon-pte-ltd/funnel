@@ -16,11 +16,12 @@
 
 from __future__ import absolute_import, division, print_function, with_statement
 
-from funnel.queue import AsyncManager, SyncManager
+from funnel.queue import AsyncManager, SyncManager, Message
 from time import time
 from tornado.testing import AsyncTestCase
 from tornado.ioloop import IOLoop
 from funnel.testing import HOST
+from unittest import TestCase
 
 class TestAsyncManager(AsyncTestCase):
     def get_new_ioloop(self):
@@ -136,3 +137,13 @@ class TestSyncManager(AsyncTestCase):
         except Exception as e:
             self.fail("This exception is raised: {}".format(e))
 
+class TestMassage(TestCase):
+    def test__prepare_body(self):
+        def dummy_callback():
+            pass
+
+        queue = AsyncManager()
+        message = Message(queue, dummy_callback)
+
+        body = message._prepare_body(b'{}')
+        self.assertEqual(body, '{}')
