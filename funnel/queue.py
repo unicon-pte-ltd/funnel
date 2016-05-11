@@ -46,9 +46,7 @@ class Message(object):
         self._unused_channel = unused_channel
         self._basic_deliver  = basic_deliver
         self._properties     = properties
-        if str(type(body)) == "<class 'bytes'>":
-            body = body.decode('utf-8')
-        self._body           = json.loads(body)
+        self._body           = json.loads(self._prepare_body(body))
 
         with ExceptionStackContext(self._stack_context_handle_exception):
             try:
@@ -98,6 +96,11 @@ class Message(object):
             )
 
         self._log()
+
+    def _prepare_body(self, body):
+        if str(type(body)) == "<class 'bytes'>":
+            body = body.decode('utf-8')
+        return body
 
 class BaseManager(object):
     def __init__(self, queue="", exchange="", routing_key="", exclusive=False, persistent=False):
