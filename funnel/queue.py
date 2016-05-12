@@ -158,6 +158,7 @@ class SyncManager(BaseManager):
                 exclusive = self._exclusive,
                 durable = self._persistent
             )
+            self._ready = True
         except AMQPConnectionError as e:
             logging.exception(e)
             self.reconnect(**kwargs)

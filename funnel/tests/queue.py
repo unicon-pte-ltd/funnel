@@ -137,6 +137,25 @@ class TestSyncManager(AsyncTestCase):
         except Exception as e:
             self.fail("This exception is raised: {}".format(e))
 
+    def test_ready_flag_when_queue_declere_completed(self):
+        queue = SyncManager(queue="dummy")
+        worker_queue = AsyncManager(queue="dummy")
+        self.addCleanup(queue.close_connection)
+        queue.connect(host=HOST)
+        worker_queue.connect(host=HOST)
+
+        def on_message():
+            pass
+
+        worker_queue.start_consuming(
+            on_message,
+        )
+
+        queue.publish({"message": "Hello, world!"}, routing_key=queue.name)
+        IOLoop.current().add_timeout(time() + 0.2, self.stop)
+        self.wait()
+        self.assertTrue(queue._ready)
+
 class TestMassage(TestCase):
     def test__prepare_body(self):
         def dummy_callback():
